@@ -177,7 +177,7 @@
         body: JSON.stringify(collectConfig())
       });
       if (res.ok) {
-        alert('Saved');
+        window.location.href = '/?toast=config-saved';
       } else {
         alert('Failed to save');
       }

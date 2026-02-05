@@ -460,6 +460,10 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         button.click();
       }
     }
+    const toastParam = params.get('toast');
+    if (toastParam === 'config-saved') {
+      showToast('Config saved', false, 'You can run audits now.');
+    }
   </script>
 </body>
 </html>`;
