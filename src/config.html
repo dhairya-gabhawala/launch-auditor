@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Launch Auditor · Config</title>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="max-w-5xl mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4">Site Configuration</h1>
+    <div class="text-sm text-slate-600 mb-6">Manage site environments and URLs. Changes are saved to <code>config.json</code>.</div>
+
+    <div class="space-y-6" id="site-list"></div>
+
+    <div class="mt-6">
+      <button id="add-site" class="px-3 py-2 bg-slate-900 text-white rounded">Add Site</button>
+      <button id="save" class="px-3 py-2 border rounded">Save</button>
+    </div>
+  </main>
+
+  <template id="site-template">
+    <div class="border rounded bg-white p-4">
+      <div class="flex items-center justify-between mb-3">
+        <input class="site-name border rounded px-2 py-1 text-sm" placeholder="site-name" />
+        <button class="remove-site text-sm text-rose-600">Remove</button>
+      </div>
+      <div class="env-list space-y-2"></div>
+      <button class="add-env mt-2 text-sm text-blue-600">+ Add environment</button>
+    </div>
+  </template>
+
+  <template id="env-template">
+    <div class="grid grid-cols-12 gap-2 items-center">
+      <input class="env-name col-span-3 border rounded px-2 py-1 text-sm" placeholder="production" />
+      <input class="env-url col-span-6 border rounded px-2 py-1 text-sm" placeholder="https://assets.adobedtm.com/.../launch.js" />
+      <button class="test-url col-span-2 text-sm border rounded px-2 py-1">Test URL</button>
+      <button class="remove-env col-span-1 text-rose-600" title="Remove environment">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18"></path>
+          <path d="M8 6V4h8v2"></path>
+          <path d="M19 6l-1 14H6L5 6"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+        </svg>
+      </button>
+      <div class="env-status col-span-12 text-xs text-slate-500"></div>
+    </div>
+  </template>
+
+  <script>
+    async function loadConfig() {
+      const res = await fetch('/config');
+      return await res.json();
+    }
+
+    function renderConfig(config) {
+      const sites = (config.sites || {});
+      const siteList = document.getElementById('site-list');
+      siteList.innerHTML = '';
+
+      function wireEnvRow(envEl) {
+        const status = envEl.querySelector('.env-status');
+        const urlInput = envEl.querySelector('.env-url');
+        envEl.querySelector('.remove-env').addEventListener('click', (e) => e.target.closest('.grid').remove());
+        envEl.querySelector('.test-url').addEventListener('click', async () => {
+          const url = urlInput.value.trim();
+          if (!url) {
+            status.textContent = 'Enter a URL to test.';
+            status.className = 'env-status col-span-12 text-xs text-rose-600';
+            return;
+          }
+          status.textContent = 'Testing...';
+          status.className = 'env-status col-span-12 text-xs text-slate-500';
+          const res = await fetch('/validate-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && json.ok) {
+            status.textContent = 'Reachable';
+            status.className = 'env-status col-span-12 text-xs text-emerald-600';
+          } else {
+            const msg = json && json.error ? json.error : 'Not reachable';
+            status.textContent = msg;
+            status.className = 'env-status col-span-12 text-xs text-rose-600';
+          }
+        });
+      }
+
+      Object.keys(sites).forEach(siteName => {
+        const site = sites[siteName];
+        const siteEl = document.getElementById('site-template').content.cloneNode(true);
+        const nameInput = siteEl.querySelector('.site-name');
+        nameInput.value = siteName;
+        const envList = siteEl.querySelector('.env-list');
+
+        const envs = site.environments || site.containers || {};
+        Object.keys(envs).forEach(envName => {
+          const envEl = document.getElementById('env-template').content.cloneNode(true);
+          envEl.querySelector('.env-name').value = envName;
+          envEl.querySelector('.env-url').value = envs[envName];
+          wireEnvRow(envEl);
+          envList.appendChild(envEl);
+        });
+
+        siteEl.querySelector('.add-env').addEventListener('click', () => {
+          const envEl = document.getElementById('env-template').content.cloneNode(true);
+          wireEnvRow(envEl);
+          envList.appendChild(envEl);
+        });
+
+        siteEl.querySelector('.remove-site').addEventListener('click', (e) => e.target.closest('.border').remove());
+
+        siteList.appendChild(siteEl);
+      });
+    }
+
+    function collectConfig() {
+      const config = { sites: {} };
+      document.querySelectorAll('#site-list > .border').forEach(siteEl => {
+        const siteName = siteEl.querySelector('.site-name').value.trim();
+        if (!siteName) return;
+        const envs = {};
+        siteEl.querySelectorAll('.env-list .grid').forEach(envEl => {
+          const name = envEl.querySelector('.env-name').value.trim();
+          const url = envEl.querySelector('.env-url').value.trim();
+          if (name && url) envs[name] = url;
+        });
+        config.sites[siteName] = { environments: envs };
+      });
+      return config;
+    }
+
+    document.getElementById('add-site').addEventListener('click', () => {
+      const siteEl = document.getElementById('site-template').content.cloneNode(true);
+      siteEl.querySelector('.add-env').addEventListener('click', () => {
+        const envEl = document.getElementById('env-template').content.cloneNode(true);
+        const status = envEl.querySelector('.env-status');
+        const urlInput = envEl.querySelector('.env-url');
+        envEl.querySelector('.remove-env').addEventListener('click', (e) => e.target.closest('.grid').remove());
+        envEl.querySelector('.test-url').addEventListener('click', async () => {
+          const url = urlInput.value.trim();
+          if (!url) {
+            status.textContent = 'Enter a URL to test.';
+            status.className = 'env-status col-span-12 text-xs text-rose-600';
+            return;
+          }
+          status.textContent = 'Testing...';
+          status.className = 'env-status col-span-12 text-xs text-slate-500';
+          const res = await fetch('/validate-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && json.ok) {
+            status.textContent = 'Reachable';
+            status.className = 'env-status col-span-12 text-xs text-emerald-600';
+          } else {
+            const msg = json && json.error ? json.error : 'Not reachable';
+            status.textContent = msg;
+            status.className = 'env-status col-span-12 text-xs text-rose-600';
+          }
+        });
+        siteEl.querySelector('.env-list').appendChild(envEl);
+      });
+      siteEl.querySelector('.remove-site').addEventListener('click', (e) => e.target.closest('.border').remove());
+      document.getElementById('site-list').appendChild(siteEl);
+    });
+
+    document.getElementById('save').addEventListener('click', async () => {
+      const res = await fetch('/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collectConfig())
+      });
+      if (res.ok) {
+        alert('Saved');
+      } else {
+        alert('Failed to save');
+      }
+    });
+
+    loadConfig().then(renderConfig);
+  </script>
+</body>
+</html>

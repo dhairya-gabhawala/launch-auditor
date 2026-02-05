@@ -1,0 +1,15 @@
+{
+  "name": "launch-auditor",
+  "version": "1.0.0",
+  "description": "Local web app to audit Adobe Launch/Tags containers, compare releases, and generate shareable reports with best-practice findings.",
+  "author": "Dhairya Gabhawala",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "postinstall": "node scripts/init-config.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "license": "UNLICENSED"
+}

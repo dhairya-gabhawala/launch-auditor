@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Launch Auditor · Developer Guide</title>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="max-w-5xl mx-auto p-6">
+    <header class="mb-8">
+      <div class="flex items-center gap-3">
+        <svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="32" height="32" rx="8" fill="#0F172A"/>
+          <path d="M10 24L18 12L26 24" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="18" cy="24" r="2" fill="#F8FAFC"/>
+        </svg>
+        <div>
+          <h1 class="text-2xl font-bold">Developer Guide</h1>
+          <p class="text-sm text-slate-600">Architecture, data flow, and extension points.</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="mb-8 grid md:grid-cols-2 gap-6">
+      <div class="p-5 bg-white border rounded">
+        <h2 class="text-lg font-semibold mb-2">Architecture</h2>
+        <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+          <li><code>src/server.js</code> — Express server, routes, UI shell</li>
+          <li><code>src/audit.js</code> — container fetch, RC extraction, analysis</li>
+          <li><code>src/render.js</code> — HTML report renderer</li>
+          <li><code>runs/</code> — generated reports by site + timestamp</li>
+        </ul>
+      </div>
+      <div class="p-5 bg-white border rounded">
+        <h2 class="text-lg font-semibold mb-2">Run Local</h2>
+        <pre class="text-xs bg-slate-900 text-slate-100 p-3 rounded"><code>cd /path/to/launch-auditor
+npm install
+npm start</code></pre>
+        <p class="mt-2 text-sm text-slate-700">After <code>npm install</code>, the app auto-creates <code>config.json</code> from <code>config.template.json</code> if it doesn't already exist.</p>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Data Flow</h2>
+      <div class="p-5 bg-white border rounded text-sm text-slate-700">
+        <ol class="list-decimal list-inside space-y-1">
+          <li>Fetch container JS and extract RC URLs.</li>
+          <li>Load container in VM and extract rules/data elements/extensions.</li>
+          <li>Inspect custom code and generate findings.</li>
+          <li>Render HTML report and store in <code>runs/</code>.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Extending Checks</h2>
+      <div class="p-5 bg-white border rounded text-sm text-slate-700">
+        <p>Add/modify heuristics in <code>analyzeCustomCode</code> in <code>src/audit.js</code>.</p>
+        <p class="mt-2">Example: flag synchronous XHR, duplicate scripts, jQuery usage.</p>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Config Structure</h2>
+      <pre class="text-xs bg-slate-900 text-slate-100 p-3 rounded"><code>{
+  "sites": {
+    "fishersci": {
+      "environments": {
+        "production": "https://assets.adobedtm.com/.../launch.js"
+      }
+    }
+  },
+  "approvedDomains": ["assets.adobedtm.com"],
+  "maxRcFiles": 150,
+  "maxCustomCodeActions": 120
+}</code></pre>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">UI Notes</h2>
+      <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+        <li>Reports open inside an iframe for quick navigation.</li>
+        <li>Client-side code formatting uses Prettier + Prism.</li>
+        <li>Sidebar supports search and delete.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

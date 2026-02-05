@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Launch Auditor · How To</title>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="max-w-5xl mx-auto p-6">
+    <header class="mb-8">
+      <div class="flex items-center gap-3">
+        <svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="32" height="32" rx="8" fill="#0F172A"/>
+          <path d="M10 24L18 12L26 24" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="18" cy="24" r="2" fill="#F8FAFC"/>
+        </svg>
+        <div>
+          <h1 class="text-2xl font-bold">Launch Auditor · How To</h1>
+          <p class="text-sm text-slate-600">Step‑by‑step guide to running audits and interpreting results.</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid md:grid-cols-2 gap-6 mb-8">
+      <div class="p-5 bg-white border rounded">
+        <h2 class="text-lg font-semibold mb-2">1) Run an Audit</h2>
+        <ol class="list-decimal list-inside text-sm text-slate-700 space-y-1">
+          <li>Open the app at <code>http://localhost:4545</code>.</li>
+          <li>Click <strong>Run New Audit</strong>.</li>
+          <li>Select a <strong>Site</strong> and <strong>Environment</strong> for a standard audit.</li>
+          <li>Choose <strong>Manual URL</strong> if you want to compare specific containers.</li>
+          <li>Click <strong>Run</strong> and wait for the loading indicator.</li>
+        </ol>
+      </div>
+      <div class="p-5 bg-white border rounded">
+        <h2 class="text-lg font-semibold mb-2">2) Compare Old vs New</h2>
+        <p class="text-sm text-slate-700 mb-2">Use comparison to highlight changes between two containers.</p>
+        <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+          <li>Always set the <strong>New environment</strong> to the container you want to review as the latest state.</li>
+          <li>Set <strong>Old environment</strong> to the baseline you are comparing against.</li>
+          <li>Use Manual URL for explicit comparisons and keep New = latest, Old = baseline.</li>
+          <li>The report will show deltas in the dashboard cards.</li>
+        </ul>
+        <div class="mt-3 text-sm text-slate-700">
+          <div class="font-medium mb-1">Swap new / old</div>
+          <div>Use <strong>Swap new/old</strong> if the comparison direction is reversed.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Run Audit Modal (Reference)</h2>
+      <p class="text-sm text-slate-700 mb-4">This is a visual reference of the Run Audit modal so teams can follow the exact fields and flow.</p>
+      <div class="max-w-xl bg-white border rounded shadow-sm">
+        <div class="p-6 space-y-4">
+          <div class="text-lg font-semibold">Run Audit</div>
+          <div class="text-sm text-slate-600">Pick a site + environment or use URLs for a comparison.</div>
+          <div class="grid gap-3">
+            <label class="text-sm">Release
+              <input class="mt-1 w-full border rounded px-3 py-2" placeholder="2026.02.05" />
+            </label>
+            <label class="text-sm">Site
+              <select class="mt-1 w-full border rounded px-3 py-2">
+                <option>example-site</option>
+              </select>
+            </label>
+            <label class="text-sm">New environment
+              <select class="mt-1 w-full border rounded px-3 py-2">
+                <option>production</option>
+                <option>staging</option>
+                <option>development</option>
+                <option>Manual URL</option>
+              </select>
+            </label>
+            <label class="text-sm">Old environment
+              <select class="mt-1 w-full border rounded px-3 py-2">
+                <option>none</option>
+                <option>production</option>
+                <option>staging</option>
+                <option>development</option>
+              </select>
+            </label>
+            <div>
+              <button class="text-xs text-slate-700 underline" type="button">Swap new/old</button>
+            </div>
+            <div class="text-xs text-slate-500">Choose <strong>Manual URL</strong> to use explicit URLs.</div>
+            <label class="text-sm">New container URL
+              <input class="mt-1 w-full border rounded px-3 py-2" placeholder="https://assets.adobedtm.com/.../launch.js" />
+            </label>
+            <label class="text-sm">Old container URL
+              <input class="mt-1 w-full border rounded px-3 py-2" placeholder="https://assets.adobedtm.com/.../launch.js" />
+            </label>
+            <label class="text-sm flex items-center gap-2">
+              <input type="checkbox" class="rounded" checked />
+              Generate Release Notes (diff only)
+            </label>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button class="px-3 py-2 border rounded" type="button">Cancel</button>
+            <button class="px-3 py-2 bg-slate-900 text-white rounded" type="button">Run</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Understanding the Report</h2>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="p-4 bg-white border rounded">
+          <div class="font-medium mb-1">Dashboard Cards</div>
+          <p class="text-sm text-slate-700">Quick totals for data elements, rules, extensions, custom code actions, and RC files. Deltas appear only for comparisons.</p>
+        </div>
+        <div class="p-4 bg-white border rounded">
+          <div class="font-medium mb-1">Breakdown Tab</div>
+          <p class="text-sm text-slate-700">Grouped data elements and full rule details (events, conditions, actions) with formatted code blocks.</p>
+        </div>
+        <div class="p-4 bg-white border rounded">
+          <div class="font-medium mb-1">Opportunities Tab</div>
+          <p class="text-sm text-slate-700">Only shows recommendations (no duplicates) with line‑number hints and code context.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Manage Site Config</h2>
+      <p class="text-sm text-slate-700 mb-2">Use <strong>Manage Config</strong> to add sites and environment URLs. Changes persist to <code>config.json</code> in the project root.</p>
+      <pre class="text-xs bg-slate-900 text-slate-100 p-3 rounded"><code>{
+  "sites": {
+    "fishersci": {
+      "environments": {
+        "production": "https://assets.adobedtm.com/.../launch.js"
+      }
+    }
+  }
+}</code></pre>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3">Tips</h2>
+      <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+        <li>Keep audit names consistent (e.g., <code>2026.02.05</code>).</li>
+        <li>Use comparison before release to catch delta spikes.</li>
+        <li>Review Opportunities for custom‑code optimizations.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

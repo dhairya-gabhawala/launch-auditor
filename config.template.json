@@ -1,0 +1,13 @@
+{
+  "sites": {
+    "example-site": {
+      "environments": {
+        "production": "https://assets.adobedtm.com/.../launch.js",
+        "staging": "https://assets.adobedtm.com/.../launch-staging.js"
+      }
+    }
+  },
+  "approvedDomains": ["assets.adobedtm.com"],
+  "maxRcFiles": 150,
+  "maxCustomCodeActions": 120
+}
