@@ -19,7 +19,8 @@ function detectCodeLang(src) {
 
 function renderCodeBlock(code, lang) {
   const safe = escapeHtml(code || '');
-  const dataLang = lang || 'javascript';
+  const normalized = lang === 'js' ? 'javascript' : lang;
+  const dataLang = normalized || 'javascript';
   const classLang = dataLang === 'html' || dataLang === 'markup'
     ? 'language-markup'
     : dataLang === 'json'
@@ -67,6 +68,25 @@ function renderAccordion(title, bodyHtml) {
     <summary class="cursor-pointer px-3 py-2 font-medium bg-slate-50">${escapeHtml(title)}</summary>
     <div class="p-3">${bodyHtml}</div>
   </details>`;
+}
+
+function extractFunctionStrings(value, acc, path) {
+  if (!acc) acc = [];
+  if (!path) path = [];
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('function') || trimmed.includes('=>')) {
+      acc.push({ path: path.join('.'), code: trimmed });
+    }
+    return acc;
+  }
+  if (!value || typeof value !== 'object') return acc;
+  if (Array.isArray(value)) {
+    value.forEach((v, idx) => extractFunctionStrings(v, acc, path.concat(String(idx))));
+    return acc;
+  }
+  Object.keys(value).forEach(k => extractFunctionStrings(value[k], acc, path.concat(k)));
+  return acc;
 }
 
 function changeBadge(change) {
@@ -336,7 +356,23 @@ function renderReportHtml(model) {
 
   const dataElementHtml = Object.keys(dataElementGroups || {}).sort().map(type => {
     const items = dataElementGroups[type].map(de => {
-      const settings = JSON.stringify(de.settings || {}, null, 2);
+      const settingsObj = de.settings || {};
+      if (settingsObj && settingsObj.source) {
+        const code = String(settingsObj.source || '');
+        const lang = detectCodeLang(code);
+        const rest = { ...settingsObj };
+        delete rest.source;
+        const restJson = Object.keys(rest).length ? renderCodeBlock(JSON.stringify(rest, null, 2), 'json') : '';
+        const body = `
+          <div class="mb-2">
+            <div class="text-xs text-slate-500 mb-1">Custom Code</div>
+            ${renderCodeBlock(code, lang)}
+          </div>
+          ${restJson ? `<div class="mt-2"><div class="text-xs text-slate-500 mb-1">Settings</div>${restJson}</div>` : ''}
+        `;
+        return renderAccordion(`${de.name}`, body);
+      }
+      const settings = JSON.stringify(settingsObj || {}, null, 2);
       return renderAccordion(`${de.name}`, renderCodeBlock(settings, 'json'));
     }).join('');
     return renderAccordion(type, items || '<div class="text-sm text-slate-600">No items</div>');
@@ -348,13 +384,23 @@ function renderReportHtml(model) {
       const hasSrc = !!c.source;
       const code = hasSrc ? c.source : JSON.stringify(c.settings || {}, null, 2);
       const lang = hasSrc ? detectCodeLang(code) : 'json';
-      return renderAccordion(`Condition: ${c.name}`, renderCodeBlock(code, lang));
+      const fnSnippets = extractFunctionStrings(c.settings || {});
+      const fnBlock = fnSnippets.length
+        ? `<div class="mb-2"><div class="text-xs text-slate-500 mb-1">Custom Code</div>${renderCodeBlock(fnSnippets.map(s => s.code).join('\n\n'), 'javascript')}</div>`
+        : '';
+      const settingsBlock = renderCodeBlock(code, lang);
+      return renderAccordion(`Condition: ${c.name}`, fnBlock + settingsBlock);
     }).join('');
     const actionsHtml = (rule.actions || []).map(a => {
       const hasSrc = !!a.source;
       const code = hasSrc ? a.source : JSON.stringify(a.settings || {}, null, 2);
       const lang = hasSrc ? detectCodeLang(code) : 'json';
-      return renderAccordion(`Action: ${a.name}`, renderCodeBlock(code, lang));
+      const fnSnippets = extractFunctionStrings(a.settings || {});
+      const fnBlock = fnSnippets.length
+        ? `<div class="mb-2"><div class="text-xs text-slate-500 mb-1">Custom Code</div>${renderCodeBlock(fnSnippets.map(s => s.code).join('\n\n'), 'javascript')}</div>`
+        : '';
+      const settingsBlock = renderCodeBlock(code, lang);
+      return renderAccordion(`Action: ${a.name}`, fnBlock + settingsBlock);
     }).join('');
 
     return renderAccordion(`Rule: ${rule.name}`, `
@@ -584,6 +630,7 @@ function renderReportHtml(model) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="stylesheet" href="https://prismjs.com/themes/prism-okaidia.css"/>
   <script src="https://prismjs.com/components/prism-core.min.js"></script>
   <script src="https://prismjs.com/components/prism-javascript.min.js"></script>
@@ -595,6 +642,29 @@ function renderReportHtml(model) {
   <script src="https://unpkg.com/prettier@3.3.3/standalone.js"></script>
   <script src="https://unpkg.com/prettier@3.3.3/plugins/babel.js"></script>
   <script src="https://unpkg.com/prettier@3.3.3/plugins/html.js"></script>
+  <style>
+    @media print {
+      body { background: #fff !important; }
+      .no-print { display: none !important; }
+      .tabs-nav { display: none !important; }
+      body[data-print-title]::before {
+        content: attr(data-print-title);
+        display: block;
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0 0 12px 0;
+        color: #0f172a;
+      }
+      .tab-panel { display: none !important; }
+      .tab-panel.print-only { display: block !important; }
+      details { page-break-inside: avoid; }
+      pre, code { white-space: pre-wrap !important; }
+      .line-numbers-rows { display: none !important; }
+      pre { background: #fff !important; color: #000 !important; }
+      .shadow, .shadow-sm, .shadow-lg, .shadow-xl { box-shadow: none !important; }
+      a { color: #000 !important; text-decoration: none !important; }
+    }
+  </style>
   <title>Launch Auditor: ${escapeHtml(release)}</title>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -611,6 +681,14 @@ function renderReportHtml(model) {
           <div class="text-sm text-slate-600">Site: ${escapeHtml(siteName)} · Release: ${escapeHtml(release)} · Run: ${escapeHtml(timestamp)}</div>
         </div>
       </div>
+      <div class="no-print">
+        <button id="print-report" class="inline-flex items-center gap-2 text-sm border border-slate-300 rounded-md px-3 py-2 bg-white hover:bg-slate-50 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
+          </svg>
+          Print
+        </button>
+      </div>
     </div>
 
     <section class="mb-6">
@@ -621,15 +699,15 @@ function renderReportHtml(model) {
       ${cards.join('')}
     </div>
 
-    <div class="mb-6 border-b">
+    <div class="mb-6 border-b tabs-nav">
       <nav class="flex gap-4">
-        <button class="tab-btn py-2 px-3 border-b-2 border-transparent font-medium" data-tab="breakdown">Breakdown</button>
+        ${Object.keys(dataElementGroups || {}).length || (ruleDetails || []).length ? '<button class="tab-btn py-2 px-3 border-b-2 border-transparent font-medium" data-tab="breakdown">Breakdown</button>' : ''}
         <button class="tab-btn py-2 px-3 border-b-2 border-transparent font-medium" data-tab="opportunities">Opportunities</button>
         ${releaseNotes ? '<button class="tab-btn py-2 px-3 border-b-2 border-transparent font-medium" data-tab="release-notes">Release Notes</button>' : ''}
       </nav>
     </div>
 
-    <section id="tab-breakdown" class="tab-panel">
+    <section id="tab-breakdown" class="tab-panel${Object.keys(dataElementGroups || {}).length || (ruleDetails || []).length ? '' : ' hidden'}">
       ${breakdownHtml}
     </section>
 
@@ -643,9 +721,42 @@ function renderReportHtml(model) {
     ` : ''}
   </main>
 
+  <dialog id="print-dialog" class="rounded-lg p-0 w-[420px] no-print">
+    <form method="dialog" class="p-5 space-y-4">
+      <div class="text-lg font-semibold">Print Options</div>
+      <div class="text-sm text-slate-600">Choose which tabs to include in the printout.</div>
+      <div class="space-y-2 text-sm">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="print-all" class="h-4 w-4 rounded border-slate-300 text-slate-900" checked />
+          <span>Print all tabs</span>
+        </label>
+        <div class="pl-6 space-y-2">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" class="print-tab h-4 w-4 rounded border-slate-300 text-slate-900" data-tab="breakdown" checked />
+            <span>Breakdown</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" class="print-tab h-4 w-4 rounded border-slate-300 text-slate-900" data-tab="opportunities" checked />
+            <span>Opportunities</span>
+          </label>
+          ${releaseNotes ? `
+          <label class="flex items-center gap-2">
+            <input type="checkbox" class="print-tab h-4 w-4 rounded border-slate-300 text-slate-900" data-tab="release-notes" checked />
+            <span>Release Notes</span>
+          </label>
+          ` : ''}
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="print-cancel" class="px-3 py-2 border rounded" type="button">Cancel</button>
+        <button id="print-confirm" class="px-3 py-2 bg-slate-900 text-white rounded" value="default">Print</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     const btns = document.querySelectorAll('.tab-btn');
-    const panels = { breakdown: document.getElementById('tab-breakdown'), opportunities: document.getElementById('tab-opportunities')${releaseNotes ? ", 'release-notes': document.getElementById('tab-release-notes')" : ''} };
+    const panels = { ${Object.keys(dataElementGroups || {}).length || (ruleDetails || []).length ? "breakdown: document.getElementById('tab-breakdown')," : ""} opportunities: document.getElementById('tab-opportunities')${releaseNotes ? ", 'release-notes': document.getElementById('tab-release-notes')" : ''} };
     function setTab(tab){
       btns.forEach(b=>b.classList.remove('border-slate-900'));
       document.querySelector('[data-tab="'+tab+'"]').classList.add('border-slate-900');
@@ -653,7 +764,7 @@ function renderReportHtml(model) {
       panels[tab].classList.remove('hidden');
     }
     btns.forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
-    setTab('breakdown');
+    setTab(${Object.keys(dataElementGroups || {}).length || (ruleDetails || []).length ? "'breakdown'" : "'opportunities'"});
 
     // Format code blocks with Prettier (async), then highlight
     document.querySelectorAll('code[data-lang]').forEach((el) => {
@@ -697,6 +808,59 @@ function renderReportHtml(model) {
           setTimeout(() => copyBtn.textContent = 'Copy for Confluence', 1500);
         }
       });
+    }
+
+    const printBtn = document.getElementById('print-report');
+    if (printBtn) {
+      const printDialog = document.getElementById('print-dialog');
+      const printAll = document.getElementById('print-all');
+      const tabChecks = Array.from(document.querySelectorAll('.print-tab'));
+      const cancelBtn = document.getElementById('print-cancel');
+      const confirmBtn = document.getElementById('print-confirm');
+
+      function syncTabsDisabled() {
+        const disabled = printAll.checked;
+        tabChecks.forEach(cb => {
+          cb.disabled = disabled;
+          cb.parentElement.classList.toggle('opacity-50', disabled);
+        });
+      }
+      if (printAll) {
+        printAll.addEventListener('change', syncTabsDisabled);
+        syncTabsDisabled();
+      }
+      if (cancelBtn) cancelBtn.addEventListener('click', () => printDialog.close());
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const panels = document.querySelectorAll('.tab-panel');
+          panels.forEach(p => p.classList.remove('print-only'));
+          if (printAll && printAll.checked) {
+            panels.forEach(p => p.classList.add('print-only'));
+          } else {
+            panels.forEach(p => {
+              const id = p.id || '';
+              const key = id.replace('tab-', '');
+              const match = tabChecks.find(cb => cb.dataset.tab === key);
+              if (match && match.checked) p.classList.add('print-only');
+            });
+          }
+          if (printAll && printAll.checked) {
+            document.body.setAttribute('data-print-title', 'All Tabs');
+          } else {
+            const selectedNames = tabChecks.filter(cb => cb.checked).map(cb => cb.nextElementSibling ? cb.nextElementSibling.textContent.trim() : cb.dataset.tab);
+            document.body.setAttribute('data-print-title', selectedNames.join(', '));
+          }
+          printDialog.close();
+          window.print();
+          // Restore active tab after print
+          setTab(document.querySelector('.tab-btn.border-slate-900')?.dataset.tab || 'breakdown');
+          document.body.removeAttribute('data-print-title');
+        });
+      }
+
+      printBtn.addEventListener('click', () => printDialog.showModal());
     }
   </script>
 </body>

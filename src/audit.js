@@ -366,6 +366,7 @@ function prettyModuleName(modulePath) {
     'adobe-analytics/src/lib/actions/clearVariables.js': 'AA Clear Variables',
     'adobe-analytics/src/lib/actions/sendBeacon.js': 'AA Send Beacon',
     'adobe-alloy/dist/lib/actions/sendEvent/index.js': 'AEP Web SDK Send Event',
+    'adobe-alloy/dist/lib/actions/updateVariable/index.js': 'AEP Web SDK Update Variable',
     'facebook-pixel/src/lib/actions/sendPageView.js': 'Meta Pixel Page View',
     'facebook-pixel/src/lib/actions/sendCustomEvent.js': 'Meta Pixel Custom Event',
     'facebook-pixel/src/lib/actions/sendLeadEvent.js': 'Meta Pixel Lead',
@@ -386,8 +387,12 @@ function analyzeCustomCode(src) {
   const rawLines = s.split(/\r?\n/);
 
   function addFinding(message, regex) {
-    const line = findLine(rawLines, regex);
-    findings.push({ message, line });
+    try {
+      const line = findLine(rawLines, regex);
+      findings.push({ message, line });
+    } catch {
+      findings.push({ message, line: null });
+    }
   }
 
   // NOTE: eval/new Function rule removed per project guidance (used with webworkers).
@@ -440,7 +445,13 @@ function analyzeCustomCode(src) {
   }
   const repeated = Object.keys(freq).filter(k => freq[k] >= 3);
   if (repeated.length) {
-    addFinding('Repeated identical lines detected; consider consolidating to reduce redundancy.', new RegExp(escapeRegExp(repeated[0])));
+    const safePattern = escapeRegExp(repeated[0]);
+    const safeRegex = safePattern ? new RegExp(safePattern) : null;
+    if (safeRegex) {
+      addFinding('Repeated identical lines detected; consider consolidating to reduce redundancy.', safeRegex);
+    } else {
+      findings.push({ message: 'Repeated identical lines detected; consider consolidating to reduce redundancy.', line: null });
+    }
   }
   return findings;
 }
@@ -453,37 +464,61 @@ function findLine(lines, regex) {
 }
 
 function escapeRegExp(str) {
-  return String(str).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function groupDataElementsByType(dataElements) {
+function groupDataElementsByType(dataElements, rcByUrl) {
   const groups = {};
   for (const name of Object.keys(dataElements || {})) {
     const de = dataElements[name] || {};
     const type = prettyModuleName(de.modulePath || 'unknown');
     if (!groups[type]) groups[type] = [];
-    groups[type].push({ name, modulePath: de.modulePath || 'unknown', settings: de.settings || {} });
+    const settings = { ...(de.settings || {}) };
+    if (settings && settings.source) {
+      if (settings.isExternal && rcByUrl && rcByUrl[settings.source]) {
+        settings.source = rcByUrl[settings.source];
+      } else if (typeof settings.source === 'function') {
+        settings.source = settings.source.toString();
+      } else {
+        settings.source = String(settings.source);
+      }
+    }
+    groups[type].push({ name, modulePath: de.modulePath || 'unknown', settings });
   }
   return groups;
 }
 
 function extractRuleDetails(rules, rcByUrl) {
+  function normalizeSettings(value, seen) {
+    if (!seen) seen = new WeakSet();
+    if (typeof value === 'function') return value.toString();
+    if (!value || typeof value !== 'object') return value;
+    if (seen.has(value)) return value;
+    seen.add(value);
+    if (Array.isArray(value)) return value.map(v => normalizeSettings(v, seen));
+    const out = {};
+    Object.keys(value).forEach(k => {
+      out[k] = normalizeSettings(value[k], seen);
+    });
+    return out;
+  }
+
   return (rules || []).map(rule => {
     const events = (rule.events || []).map(e => ({
       modulePath: e.modulePath,
       name: prettyModuleName(e.modulePath || 'unknown'),
-      settings: e.settings || {}
+      settings: normalizeSettings(e.settings || {})
     }));
     const conditions = (rule.conditions || []).map(c => ({
       modulePath: c.modulePath,
       name: prettyModuleName(c.modulePath || 'unknown'),
-      settings: c.settings || {},
+      settings: normalizeSettings(c.settings || {}),
       source: c.settings && c.settings.source ? (c.settings.isExternal && rcByUrl[c.settings.source] ? rcByUrl[c.settings.source] : c.settings.source.toString()) : ''
     }));
     const actions = (rule.actions || []).map(a => ({
       modulePath: a.modulePath,
       name: prettyModuleName(a.modulePath || 'unknown'),
-      settings: a.settings || {},
+      settings: normalizeSettings(a.settings || {}),
       source: a.settings && a.settings.source ? (a.settings.isExternal && rcByUrl[a.settings.source] ? rcByUrl[a.settings.source] : a.settings.source.toString()) : ''
     }));
     return { id: rule.id, name: rule.name, events, conditions, actions };
@@ -495,7 +530,7 @@ function formatTimestampForFile(d) {
   return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-async function runAudit({ release, siteName, newUrl, oldUrl, outDir, config, generateReleaseNotes }) {
+async function runAudit({ release, siteName, newUrl, oldUrl, outDir, config, generateReleaseNotes, includeBreakdown }) {
   ensureDir(outDir);
   const rcDirNew = path.join(outDir, 'rc-new');
   const rcDirOld = path.join(outDir, 'rc-old');
@@ -551,8 +586,8 @@ async function runAudit({ release, siteName, newUrl, oldUrl, outDir, config, gen
     if (d.url) oldRcByUrl[d.url] = d.src || '';
   });
 
-  const dataElementGroups = newSummary ? groupDataElementsByType(newSummary.dataElements) : {};
-  const ruleDetails = newSummary ? extractRuleDetails(newSummary.rules, rcByUrl) : [];
+  const dataElementGroups = includeBreakdown && newSummary ? groupDataElementsByType(newSummary.dataElements, rcByUrl) : {};
+  const ruleDetails = includeBreakdown && newSummary ? extractRuleDetails(newSummary.rules, rcByUrl) : [];
 
   const customActionFindings = [];
   const customCodeFindings = [];
@@ -632,22 +667,68 @@ async function runAudit({ release, siteName, newUrl, oldUrl, outDir, config, gen
       });
     });
 
-    // Data element usage checks (flag if used <= 1 time)
+    // Data element usage checks (flag if used <= 1 time), including linked dependencies
     const deUsage = {};
     const rulesJson = JSON.stringify(newSummary.rules || []);
-    Object.keys(newSummary.dataElements || {}).forEach(name => {
+    const dataElements = newSummary.dataElements || {};
+    const nameSet = new Set(Object.keys(dataElements));
+
+    function extractRefsFromString(str) {
+      const refs = new Set();
+      if (!str) return refs;
+      const re = /%([^%]+)%/g;
+      let m;
+      while ((m = re.exec(str)) !== null) {
+        const name = m[1];
+        if (nameSet.has(name)) refs.add(name);
+      }
+      return refs;
+    }
+
+    const depsMap = {};
+    Object.keys(dataElements).forEach(name => {
+      const de = dataElements[name] || {};
+      const settingsStr = JSON.stringify(de.settings || {});
+      const sourceStr = de.settings && de.settings.source ? String(de.settings.source) : '';
+      const refs = new Set([
+        ...extractRefsFromString(settingsStr),
+        ...extractRefsFromString(sourceStr)
+      ]);
+      depsMap[name] = Array.from(refs);
+    });
+
+    Object.keys(dataElements).forEach(name => {
       const token = `%${name}%`;
       const count = (rulesJson.split(token).length - 1);
       deUsage[name] = count;
-      dataElementUsage[name] = count;
     });
+
+    function propagate(name, count, stack) {
+      if (!depsMap[name] || !depsMap[name].length) return;
+      for (const dep of depsMap[name]) {
+        if (stack.has(dep)) continue;
+        deUsage[dep] = (deUsage[dep] || 0) + count;
+        stack.add(dep);
+        propagate(dep, count, stack);
+        stack.delete(dep);
+      }
+    }
+
     Object.keys(deUsage).forEach(name => {
-      if (deUsage[name] <= 1) {
+      const count = deUsage[name] || 0;
+      if (count > 0) {
+        propagate(name, count, new Set([name]));
+      }
+    });
+
+    Object.keys(deUsage).forEach(name => {
+      dataElementUsage[name] = deUsage[name] || 0;
+      if ((deUsage[name] || 0) <= 1) {
         generalFindings.push({
           type: 'Data Element Usage',
-          message: `Data element "${name}" appears ${deUsage[name]} time(s). Rule: only create data elements used in more than one place.`,
+          message: `Data element "${name}" appears ${deUsage[name] || 0} time(s). Rule: only create data elements used in more than one place.`,
           name,
-          count: deUsage[name]
+          count: deUsage[name] || 0
         });
       }
     });

@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <title>Launch Auditor · Config</title>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -177,7 +178,11 @@
         body: JSON.stringify(collectConfig())
       });
       if (res.ok) {
-        window.location.href = '/?toast=config-saved';
+        if (window.top) {
+          window.top.location.href = '/?toast=config-saved';
+        } else {
+          window.location.href = '/?toast=config-saved';
+        }
       } else {
         alert('Failed to save');
       }

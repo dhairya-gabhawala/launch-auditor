@@ -8,6 +8,40 @@ const SCRIPT_DIR = path.resolve(__dirname, '..');
 const RUNS_ROOT = path.join(SCRIPT_DIR, 'runs');
 const CONFIG_PATH = path.join(SCRIPT_DIR, 'config.json');
 
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderErrorHtml({ site, release, run, message, stack }) {
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Launch Auditor · Failed Run</title>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="max-w-3xl mx-auto p-6">
+    <div class="mb-4">
+      <h1 class="text-2xl font-bold">Audit Failed</h1>
+      <p class="text-sm text-slate-600">Site: ${escapeHtml(site)} · Release: ${escapeHtml(release)} · Run: ${escapeHtml(run)}</p>
+    </div>
+    <div class="p-4 border rounded bg-white">
+      <div class="text-sm font-medium text-rose-700 mb-2">Error</div>
+      <pre class="text-xs bg-slate-900 text-slate-100 p-3 rounded whitespace-pre-wrap">${escapeHtml(message || 'Unknown error')}</pre>
+      ${stack ? `<div class="mt-3 text-xs text-slate-500">Stack</div><pre class="text-xs bg-slate-900 text-slate-100 p-3 rounded whitespace-pre-wrap">${escapeHtml(stack)}</pre>` : ''}
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
 function loadConfig() {
   try {
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -34,12 +68,15 @@ function listRuns() {
     const runs = runDirs.map(run => {
       const runDir = path.join(siteDir, run);
       const reportFile = fs.readdirSync(runDir).find(f => f.endsWith('.html'));
+      const mtime = fs.statSync(runDir).mtimeMs || 0;
       return {
         site,
         run,
-        reportPath: reportFile ? `/runs/${site}/${run}/${reportFile}` : ''
+        reportPath: reportFile ? `/runs/${site}/${run}/${reportFile}` : '',
+        isError: reportFile ? reportFile.includes('error.html') : false,
+        mtime
       };
-    }).filter(r => r.reportPath).sort((a, b) => a.run < b.run ? 1 : -1);
+    }).filter(r => r.reportPath).sort((a, b) => (b.mtime - a.mtime) || (a.run < b.run ? 1 : -1));
     if (runs.length) {
       grouped[site] = runs;
     }
@@ -51,10 +88,16 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
   const hasExampleSite = !!(config && config.sites && config.sites['example-site']);
   const siteSections = Object.keys(groupedRuns).sort().map(site => {
     const rows = groupedRuns[site].map(r => {
-      const selected = selectedRun === r.run ? 'bg-amber-50' : '';
+      const selected = selectedRun === r.run ? 'bg-sky-50' : '';
+      const kindDot = r.run.startsWith('Diff-') ? '<span class="inline-block h-2 w-2 rounded-full bg-purple-500"></span>' : '<span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>';
+      const displayName = r.run.replace(/^Diff-/, '').replace(/^Audit-/, '');
       return `<div class="px-3 py-2 border-b ${selected}">
         <div class="flex items-center justify-between gap-2">
-          <button class="flex-1 text-left text-sm" data-report="${r.reportPath}" data-run="${r.run}">${site} · ${r.run}</button>
+          <button class="flex-1 text-left text-sm flex items-center gap-2" data-report="${r.reportPath}" data-run="${r.run}">
+            ${kindDot}
+            <span>${displayName}</span>
+          </button>
+          ${r.isError ? '<span class="text-[10px] px-2 py-0.5 rounded bg-rose-100 text-rose-800">Failed</span>' : ''}
           <button class="text-rose-600" data-delete="${site}|${r.run}" title="Delete">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 6h18"></path>
@@ -68,20 +111,31 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
       </div>`;
     }).join('');
 
-    return `<div class="mb-4">
-      <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500">${site}</div>
+    return `<details class="mb-2 site-section group border-b border-slate-200 pb-2">
+      <summary class="list-none px-3 py-2 text-sm font-semibold text-slate-700 cursor-pointer select-none rounded-md hover:bg-slate-50 flex items-center justify-between">
+        <span>${site}</span>
+        <span class="flex items-center gap-2">
+          <span class="site-loading hidden" data-site="${escapeHtml(site)}">
+            <svg class="h-4 w-4 text-slate-400 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"></circle>
+              <path class="opacity-75" d="M21 12a9 9 0 0 1-9 9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+            </svg>
+          </span>
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180">
+            <path d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 0 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+          </svg>
+        </span>
+      </summary>
       <div>${rows || '<div class="px-3 py-2 text-sm text-slate-500">No runs</div>'}</div>
-    </div>`;
+    </details>`;
   }).join('');
 
   const siteOptions = Object.keys(config.sites || {}).map(s => `<option value="${s}">${s}</option>`).join('');
-  const envOptions = [
-    { value: 'production', label: 'production' },
-    { value: 'staging', label: 'staging' },
-    { value: 'development', label: 'development' },
-    { value: 'custom', label: 'Manual URL' }
-  ].map(e => `<option value="${e.value}">${e.label}</option>`).join('');
-  const oldEnvOptions = ['none', 'production', 'staging', 'development'].map(e => `<option value="${e}">${e}</option>`).join('');
+  const envMap = {};
+  Object.keys(config.sites || {}).forEach(siteName => {
+    const envs = (config.sites[siteName] && (config.sites[siteName].environments || config.sites[siteName].containers)) || {};
+    envMap[siteName] = Object.keys(envs).sort();
+  });
 
   const flatRuns = Object.values(groupedRuns).flat();
   const firstReport = flatRuns.length ? flatRuns[0].reportPath : '';
@@ -94,13 +148,15 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <title>Launch Auditor</title>
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div class="flex h-screen">
-    <aside class="w-80 border-r bg-white overflow-y-auto">
-      <div class="p-4 border-b">
-        <div class="flex items-center gap-3">
+    <aside class="w-80 border-r bg-white flex flex-col">
+      <div id="sidebar-top" class="transition-shadow duration-200">
+        <div class="p-4 border-b">
+        <a href="/" class="flex items-center gap-3">
           <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="2" y="2" width="32" height="32" rx="8" fill="#0F172A"/>
             <path d="M10 24L18 12L26 24" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -110,26 +166,40 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
             <div class="text-lg font-semibold">Launch Auditor</div>
             <div class="text-xs text-slate-500">Audit Reports</div>
           </div>
+        </a>
+        </div>
+        <div class="p-3">
+          <button id="new-run" class="w-full text-sm px-3 py-2 bg-slate-900 text-white rounded">Run New Audit</button>
+        </div>
+        ${hasExampleSite ? `
+        <div class="px-3 pb-3">
+          <div class="rounded border bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Your config is still using the example site. Please update it in <strong>Manage Config</strong> before running audits.
+          </div>
+        </div>
+        ` : ''}
+      <div class="px-3 pb-3">
+        <div class="flex items-center gap-2">
+          <input id="search" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="Search runs…" />
+          <select id="filter-type" class="border rounded px-2 py-2 text-sm">
+            <option value="">All</option>
+            <option value="Audit">Audit</option>
+            <option value="Diff">Diff</option>
+          </select>
+        </div>
+        <div id="filter-tags" class="mt-2 hidden flex flex-wrap gap-2 text-xs"></div>
+        <div class="mt-2 text-xs text-slate-500 flex items-center gap-3">
+          <span class="inline-flex items-center gap-1"><span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>Audit</span>
+          <span class="inline-flex items-center gap-1"><span class="inline-block h-2 w-2 rounded-full bg-purple-500"></span>Diff</span>
         </div>
       </div>
-      <div class="p-3">
-        <button id="new-run" class="w-full text-sm px-3 py-2 bg-slate-900 text-white rounded">Run New Audit</button>
-      </div>
-      ${hasExampleSite ? `
-      <div class="px-3 pb-3">
-        <div class="rounded border bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Your config is still using the example site. Please update it in <strong>Manage Config</strong> before running audits.
-        </div>
-      </div>
-      ` : ''}
-      <div class="px-3 pb-3">
-        <input id="search" class="w-full border rounded px-3 py-2 text-sm" placeholder="Search runs…" />
       </div>
       <div id="run-list" class="flex-1 overflow-y-auto">${siteSections || '<div class="p-4 text-sm text-slate-500">No runs yet</div>'}</div>
-      <div class="p-3 border-t space-y-2">
+      <div id="sidebar-bottom" class="p-3 border-t space-y-2 transition-shadow duration-200">
         <button id="open-config" class="w-full text-sm px-3 py-2 border rounded">Manage Config</button>
         <button id="open-docs" class="w-full text-sm px-3 py-2 border rounded">Docs</button>
         <button id="open-dev" class="w-full text-sm px-3 py-2 border rounded">Developer Guide</button>
+        <button id="clear-all" class="w-full text-sm px-3 py-2 border rounded text-rose-700 border-rose-200 hover:bg-rose-50">Clear All Runs</button>
       </div>
     </aside>
     <main class="flex-1 relative">
@@ -160,14 +230,12 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         </label>
         <label class="text-sm">
           <span class="block text-slate-700">New environment</span>
-          <select id="env-input" name="env" class="mt-1 w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/20">
-            ${envOptions}
+          <select id="env-input" name="env" class="mt-1 w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/20" disabled>
           </select>
         </label>
         <label class="text-sm">
           <span class="block text-slate-700">Old environment</span>
-          <select id="oldenv-input" name="oldEnv" class="mt-1 w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/20">
-            ${oldEnvOptions}
+          <select id="oldenv-input" name="oldEnv" class="mt-1 w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/20" disabled>
           </select>
         </label>
         <div>
@@ -187,6 +255,10 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         <label class="text-sm flex items-center gap-2">
           <input id="release-notes" type="checkbox" name="releaseNotes" checked class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
           <span class="text-sm text-slate-700">Generate Release Notes (diff only)</span>
+        </label>
+        <label class="text-sm flex items-center gap-2">
+          <input id="include-breakdown" type="checkbox" name="includeBreakdown" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+          <span class="text-sm text-slate-700">Include Breakdown tab (slower)</span>
         </label>
       </div>
       <div class="flex justify-end gap-2">
@@ -211,11 +283,20 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
     const frame = document.getElementById('report-frame');
     document.querySelectorAll('[data-report]').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-amber-50'));
-        btn.parentElement.parentElement.classList.add('bg-amber-50');
+        document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));
+        btn.parentElement.parentElement.classList.add('bg-sky-50');
         frame.src = btn.dataset.report;
+        const details = btn.closest('details.site-section');
+        if (details) details.open = true;
       });
     });
+
+    const logoLink = document.querySelector('a[href="/"]');
+    if (logoLink) {
+      logoLink.addEventListener('click', () => {
+        window.location.href = '/';
+      });
+    }
 
     function toastIcon(type) {
       if (type === 'loading') {
@@ -300,14 +381,29 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         openConfirm('Delete audit "' + run + '"?', async () => {
           const res = await fetch('/run', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site, run }) });
           if (res.ok) {
-          showToast('Audit deleted', false, 'The report has been removed.');
-          window.location.reload();
-        } else {
-          showToast('Failed to delete audit', true, 'Please try again.');
-        }
+            showToast('Audit deleted', false, 'The report has been removed.');
+            window.location.reload();
+          } else {
+            showToast('Failed to delete audit', true, 'Please try again.');
+          }
         });
       });
     });
+
+    const clearAllBtn = document.getElementById('clear-all');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        openConfirm('Clear all audit runs?', async () => {
+          const res = await fetch('/runs-clear', { method: 'POST' });
+          if (res.ok) {
+            showToast('All runs cleared', false, 'History has been reset.');
+            window.location.reload();
+          } else {
+            showToast('Failed to clear runs', true, 'Please try again.');
+          }
+        });
+      });
+    }
 
     const dialog = document.getElementById('run-dialog');
     document.getElementById('new-run').addEventListener('click', () => dialog.showModal());
@@ -330,12 +426,25 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
       }
     }
 
+    const envMap = ${JSON.stringify(envMap)};
+
+    function setEnvOptions(siteName) {
+      const envs = (envMap[siteName] || []).slice();
+      const options = envs.map(v => '<option value=\"' + v + '\">' + v + '</option>').join('');
+      envSelect.innerHTML = options + '<option value=\"custom\">Manual URL</option>';
+      oldEnvSelect.innerHTML = '<option value=\"none\">none</option>' + options;
+      envSelect.value = envs[0] || 'custom';
+      oldEnvSelect.value = 'none';
+    }
+
     function updateInputs() {
+      const hasSite = !!siteSelect.value;
       const useCustom = envSelect.value === 'custom';
+      setDisabled(envSelect, !hasSite || useCustom);
+      setDisabled(oldEnvSelect, !hasSite || useCustom);
       setDisabled(newUrlInput, !useCustom);
       setDisabled(oldUrlInput, !useCustom);
       setDisabled(siteSelect, useCustom);
-      setDisabled(oldEnvSelect, useCustom);
       const isDiff = (oldEnvSelect.value && oldEnvSelect.value !== 'none') || oldUrlInput.value.trim();
       setDisabled(releaseNotesInput, !isDiff);
       if (!isDiff) {
@@ -344,6 +453,15 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         releaseNotesInput.checked = true;
       }
     }
+    siteSelect.addEventListener('change', () => {
+      if (siteSelect.value) {
+        setEnvOptions(siteSelect.value);
+      } else {
+        envSelect.innerHTML = '';
+        oldEnvSelect.innerHTML = '';
+      }
+      updateInputs();
+    });
     envSelect.addEventListener('change', updateInputs);
     oldEnvSelect.addEventListener('change', updateInputs);
     releaseNotesInput.addEventListener('change', () => {
@@ -359,6 +477,10 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
       });
     }
     updateInputs();
+    if (siteSelect.value) {
+      setEnvOptions(siteSelect.value);
+      updateInputs();
+    }
     [newUrlInput, oldUrlInput].forEach(input => {
       input.addEventListener('input', () => {
         if (input.value.trim()) {
@@ -371,12 +493,15 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
 
     document.getElementById('open-config').addEventListener('click', () => {
       frame.src = '/config-ui';
+      document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));
     });
     document.getElementById('open-docs').addEventListener('click', () => {
       frame.src = '/docs';
+      document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));
     });
     document.getElementById('open-dev').addEventListener('click', () => {
       frame.src = '/dev';
+      document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));
     });
 
     function setFieldError(key, message) {
@@ -425,14 +550,29 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
 
       dialog.close();
       const loadingToast = showToast('Running audit…', false, 'You can continue browsing reports.', { type: 'loading', autoClose: false });
+      const siteLoader = document.querySelector('.site-loading[data-site="' + (data.site || '') + '"]');
+      if (siteLoader) siteLoader.classList.remove('hidden');
       const slowTimer = setTimeout(() => {
         showToast('Still working…', false, 'This can take a bit on larger containers.', { type: 'warning' });
       }, 30000);
-      const res = await fetch('/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      let res;
+      try {
+        res = await fetch('/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      } catch (err) {
+        clearTimeout(slowTimer);
+        if (loadingToast) loadingToast.remove();
+        showToast('Failed to run audit', true, 'Network error while sending request.');
+        return;
+      }
       clearTimeout(slowTimer);
       if (loadingToast) loadingToast.remove();
+      if (siteLoader) siteLoader.classList.add('hidden');
       if (!res.ok) {
-        showToast('Failed to run audit', true, 'Check the URLs or site configuration.');
+        const errJson = await res.json().catch(() => ({}));
+        showToast('Failed to run audit', true, errJson && errJson.error ? errJson.error : 'Check the URLs or site configuration.');
+        if (errJson && errJson.report) {
+          frame.src = errJson.report;
+        }
         return;
       }
       const json = await res.json();
@@ -441,15 +581,56 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
     });
 
     const search = document.getElementById('search');
-    if (search) {
-      search.addEventListener('input', () => {
-        const q = search.value.toLowerCase();
-        document.querySelectorAll('[data-report]').forEach(btn => {
-          const text = btn.textContent.toLowerCase();
-          const row = btn.parentElement.parentElement;
-          row.style.display = text.includes(q) ? '' : 'none';
-        });
+    const filterType = document.getElementById('filter-type');
+    const filterTags = document.getElementById('filter-tags');
+    function applyFilters() {
+      const q = (search && search.value ? search.value : '').toLowerCase();
+      const type = filterType && filterType.value ? filterType.value : '';
+      document.querySelectorAll('[data-report]').forEach(btn => {
+        const text = btn.textContent.toLowerCase();
+        const row = btn.parentElement.parentElement;
+        const run = btn.dataset.run || '';
+        const typeOk = !type || run.startsWith(type + '-');
+        const textOk = !q || text.includes(q);
+        row.style.display = typeOk && textOk ? '' : 'none';
       });
+      document.querySelectorAll('.site-section').forEach(section => {
+        const anyVisible = Array.from(section.querySelectorAll('[data-report]')).some(btn => btn.parentElement.parentElement.style.display !== 'none');
+        section.open = (q || type) ? anyVisible : false;
+        section.style.display = (q || type) ? (anyVisible ? '' : 'none') : '';
+      });
+      if (filterTags) {
+        if (type) {
+          filterTags.classList.remove('hidden');
+          filterTags.innerHTML = '<span class="px-2 py-1 rounded bg-slate-100 text-slate-700">Type: ' + type + '</span>';
+        } else {
+          filterTags.classList.add('hidden');
+          filterTags.innerHTML = '';
+        }
+      }
+    }
+    if (search) search.addEventListener('input', applyFilters);
+    if (filterType) filterType.addEventListener('change', applyFilters);
+
+    const runList = document.getElementById('run-list');
+    const sidebarTop = document.getElementById('sidebar-top');
+    const sidebarBottom = document.getElementById('sidebar-bottom');
+    if (runList && sidebarTop && sidebarBottom) {
+      const toggleShadow = () => {
+        if (runList.scrollTop > 4) {
+          sidebarTop.classList.add('shadow-lg');
+        } else {
+          sidebarTop.classList.remove('shadow-lg');
+        }
+        const atBottom = Math.ceil(runList.scrollTop + runList.clientHeight) >= runList.scrollHeight;
+        if (!atBottom) {
+          sidebarBottom.classList.add('shadow-xl');
+        } else {
+          sidebarBottom.classList.remove('shadow-xl');
+        }
+      };
+      runList.addEventListener('scroll', toggleShadow);
+      toggleShadow();
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -458,6 +639,8 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
       const button = document.querySelector('[data-run="' + run + '"]');
       if (button) {
         button.click();
+        const details = button.closest('details.site-section');
+        if (details) details.open = true;
       }
     }
     const toastParam = params.get('toast');
@@ -471,6 +654,7 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
+app.use(express.static(path.join(SCRIPT_DIR, 'public')));
 app.use('/runs', express.static(RUNS_ROOT));
 
 app.get('/', (req, res) => {
@@ -565,14 +749,20 @@ app.post('/validate-url', async (req, res) => {
 });
 
 app.post('/run', async (req, res) => {
+  let runName = null;
+  let outDir = null;
+  let site = 'unspecified';
+  let release = 'release';
   try {
+    console.log('Run request received', { site: req.body && req.body.site, env: req.body && req.body.env, oldEnv: req.body && req.body.oldEnv });
     const config = loadConfig();
-    const release = req.body.release || 'release';
+    release = req.body.release || 'release';
     const siteFallback = Object.keys(config.sites || {})[0];
-    const site = req.body.site || siteFallback || 'unspecified';
+    site = req.body.site || siteFallback || 'unspecified';
     const env = req.body.env || 'production';
     const oldEnv = req.body.oldEnv || 'none';
     const generateReleaseNotes = req.body.releaseNotes === 'on' || req.body.releaseNotes === true;
+    const includeBreakdown = req.body.includeBreakdown === 'on' || req.body.includeBreakdown === true;
     let newUrl = (req.body.newUrl || '').trim();
     let oldUrl = (req.body.oldUrl || '').trim();
 
@@ -593,10 +783,11 @@ app.post('/run', async (req, res) => {
     const timestamp = formatTimestampForFile(new Date());
     const typeLabel = oldUrl ? 'Diff' : 'Audit';
     const envLabel = env || 'custom';
-    const runName = `${typeLabel}-${envLabel}-${timestamp}`;
-    const outDir = path.join(RUNS_ROOT, site, runName);
+    runName = `${typeLabel}-${envLabel}-${timestamp}`;
+    outDir = path.join(RUNS_ROOT, site, runName);
+    ensureDir(outDir);
 
-    const model = await runAudit({ release, siteName: site, newUrl, oldUrl, outDir, config, generateReleaseNotes });
+    const model = await runAudit({ release, siteName: site, newUrl, oldUrl, outDir, config, generateReleaseNotes, includeBreakdown });
     model.compare = oldUrl ? {
       newLabel: env || 'new',
       oldLabel: oldEnv || 'old',
@@ -612,6 +803,21 @@ app.post('/run', async (req, res) => {
 
     res.json({ ok: true, run: runName, report: `/runs/${site}/${runName}/release-${release}-${timestamp}-audit.html` });
   } catch (e) {
+    if (runName && outDir) {
+      const errorMessage = e && e.message ? e.message : String(e);
+      const errorHtml = renderErrorHtml({
+        site,
+        release,
+        run: runName,
+        message: errorMessage,
+        stack: e && e.stack ? e.stack : ''
+      });
+      try {
+        fs.writeFileSync(path.join(outDir, 'error.html'), errorHtml);
+        fs.writeFileSync(path.join(outDir, 'error.json'), JSON.stringify({ error: errorMessage, stack: e && e.stack ? e.stack : '' }, null, 2));
+      } catch {}
+      return res.status(500).json({ error: errorMessage, run: runName, report: `/runs/${site}/${runName}/error.html` });
+    }
     res.status(500).json({ error: e.message || String(e) });
   }
 });
@@ -630,6 +836,20 @@ app.delete('/run', (req, res) => {
         fs.rmSync(siteDir, { recursive: true, force: true });
       }
     }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+app.post('/runs-clear', (req, res) => {
+  try {
+    ensureDir(RUNS_ROOT);
+    const entries = fs.readdirSync(RUNS_ROOT);
+    entries.forEach(name => {
+      const full = path.join(RUNS_ROOT, name);
+      fs.rmSync(full, { recursive: true, force: true });
+    });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
