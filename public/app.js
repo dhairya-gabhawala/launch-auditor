@@ -6,6 +6,38 @@
   const sidebarTop = document.getElementById('sidebar-top');
   const sidebarBottom = document.getElementById('sidebar-bottom');
 
+
+  const sidebar = document.getElementById('sidebar');
+  const openSidebarBtn = document.getElementById('open-sidebar');
+  const closeSidebarBtn = document.getElementById('close-sidebar');
+  const sidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+
+  function openSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.remove('translate-x-[-100%]');
+    sidebar.classList.add('translate-x-0');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('hidden');
+  }
+
+  function closeSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.add('translate-x-[-100%]');
+    sidebar.classList.remove('translate-x-0');
+    if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+  }
+
+  if (openSidebarBtn) openSidebarBtn.addEventListener('click', openSidebar);
+  if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
+  if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
+  // Close sidebar when selecting a report on mobile
+  document.querySelectorAll('[data-report]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.innerWidth < 768) closeSidebar();
+    });
+  });
+
+
   document.querySelectorAll('[data-report]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));

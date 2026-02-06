@@ -27,9 +27,10 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div class="flex h-screen">
-    <aside class="w-80 border-r bg-white flex flex-col">
+    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-slate-900/30 hidden z-40 lg:hidden"></div>
+    <aside class="w-80 border-r bg-white flex flex-col fixed inset-y-0 left-0 z-50 translate-x-[-100%] transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto lg:z-auto" id="sidebar">
       <div id="sidebar-top" class="transition-shadow duration-200">
-        <div class="p-4 border-b">
+        <div class="p-4 border-b flex items-center justify-between gap-3">
           <a href="/" class="flex items-center gap-3">
             <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="2" y="2" width="32" height="32" rx="8" fill="#0F172A"/>
@@ -41,6 +42,11 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
               <div class="text-xs text-slate-500">Audit Reports</div>
             </div>
           </a>
+          <button id="close-sidebar" class="lg:hidden text-slate-500 hover:text-slate-700" aria-label="Close sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="h-6 w-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
         <div class="p-3">
           <button id="new-run" class="w-full text-sm px-3 py-2 bg-slate-900 text-white rounded">Run New Audit</button>
@@ -76,7 +82,12 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         <button id="clear-all" class="w-full text-sm px-3 py-2 border rounded text-rose-700 border-rose-200 hover:bg-rose-50">Clear All Runs</button>
       </div>
     </aside>
-    <main class="flex-1 relative">
+    <main class="flex-1 relative pl-14 lg:pl-0">
+      <button id="open-sidebar" class="lg:hidden fixed top-4 left-4 z-40 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white p-2 text-slate-700 shadow-sm" aria-label="Open sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="h-6 w-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+        </svg>
+      </button>
       <iframe id="report-frame" class="w-full h-full" src="${defaultSrc}"></iframe>
       <div id="loading" class="absolute inset-0 bg-white/80 hidden items-center justify-center">
         <div class="px-4 py-2 bg-slate-900 text-white rounded">Running audit…</div>
