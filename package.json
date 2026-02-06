@@ -4,12 +4,57 @@
   "description": "Local web app to audit Adobe Launch/Tags containers, compare releases, and generate shareable reports with best-practice findings.",
   "author": "Dhairya Gabhawala",
   "type": "commonjs",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node src/server.js",
-    "postinstall": "node scripts/init-config.js"
+    "postinstall": "node scripts/init-config.js",
+    "build:icons": "node scripts/build-icons.js",
+    "electron:dev": "electron .",
+    "electron:pack": "npm run build:icons && electron-builder --dir",
+    "electron:dist": "npm run build:icons && electron-builder"
   },
   "dependencies": {
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.launch-auditor.app",
+    "productName": "Launch Auditor",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "public/**/*",
+      "scripts/**/*",
+      "src/**/*",
+      "config.template.json",
+      "package.json",
+      "package-lock.json"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": true
+    }
   },
   "license": "UNLICENSED"
 }

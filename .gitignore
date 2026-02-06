@@ -2,3 +2,4 @@ runs/
 *.log
 config.json
 .DS_Store
+dist/

@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { renderIndexPage } = require('../templates/index');
+const { APP_ROOT } = require('../lib/paths');
 const { loadConfig } = require('../lib/config');
 const { listRuns } = require('../lib/runs');
 
@@ -27,6 +28,36 @@ router.get('/dev', (req, res) => {
 router.get('/config-ui', (req, res) => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'config.html'), 'utf8');
   res.send(html);
+});
+
+router.get('/about', (req, res) => {
+  let logo = '';
+  try {
+    logo = fs.readFileSync(path.join(APP_ROOT, 'public', 'favicon.svg'), 'utf8');
+  } catch (e) {
+    logo = '';
+  }
+  res.send(`<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>About Launch Auditor</title>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <main class="h-screen flex items-center justify-center">
+      <div class="max-w-md text-center p-6 bg-white border rounded shadow-sm">
+        <div class="mx-auto mb-4 h-16 w-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
+          ${logo}
+        </div>
+        <h1 class="text-lg font-semibold mb-1">Launch Auditor</h1>
+        <p class="text-sm text-slate-600 mb-2">Local audit reports for Adobe Launch/Tags.</p>
+        <p class="text-xs text-slate-500">Version: ${require('../../package.json').version}</p>
+      </div>
+    </main>
+  </body>
+  </html>`);
 });
 
 router.get('/empty', (req, res) => {
