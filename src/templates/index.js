@@ -79,7 +79,10 @@ function renderIndexPage(groupedRuns, selectedRun, config) {
         <button id="open-config" class="w-full text-sm px-3 py-2 border rounded">Manage Config</button>
         <button id="open-docs" class="w-full text-sm px-3 py-2 border rounded">Docs</button>
         <button id="open-dev" class="w-full text-sm px-3 py-2 border rounded">Developer Guide</button>
+        <button id="open-about" class="w-full text-sm px-3 py-2 border rounded">About Launch Auditor</button>
         <button id="clear-all" class="w-full text-sm px-3 py-2 border rounded text-rose-700 border-rose-200 hover:bg-rose-50">Clear All Runs</button>
+        <button id="clear-local-data" class="w-full text-sm px-3 py-2 border rounded text-rose-700 border-rose-200 hover:bg-rose-50">Clear Local Data</button>
+        <div class="pt-1 text-xs text-slate-500">Version ${require('../../package.json').version}</div>
       </div>
     </aside>
     <main class="flex-1 relative pl-14 lg:pl-0">

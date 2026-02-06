@@ -141,6 +141,9 @@
 
   const clearAllBtn = document.getElementById('clear-all');
   if (clearAllBtn) {
+    if (window.launchAuditor && typeof window.launchAuditor.openAbout === 'function') {
+      clearAllBtn.classList.add('hidden');
+    }
     clearAllBtn.addEventListener('click', () => {
       openConfirm('Clear all audit runs?', async () => {
         const res = await fetch('/runs-clear', { method: 'POST' });
@@ -149,6 +152,22 @@
           window.location.reload();
         } else {
           showToast('Failed to clear runs', true, 'Please try again.');
+        }
+      });
+    });
+  }
+
+  const clearLocalBtn = document.getElementById('clear-local-data');
+  if (clearLocalBtn) {
+    clearLocalBtn.addEventListener('click', () => {
+      openConfirm('Clear all local data (runs + config)?', async () => {
+        const res = await fetch('/local-clear', { method: 'POST' });
+        if (res.ok) {
+          showToast('Local data cleared', false, 'Config and run history were reset.');
+          if (frame) frame.src = '/empty';
+          window.location.href = '/';
+        } else {
+          showToast('Failed to clear local data', true, 'Please try again.');
         }
       });
     });
@@ -317,6 +336,21 @@
     frame.src = '/dev';
     document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));
   });
+
+  const openAboutBtn = document.getElementById('open-about');
+  if (openAboutBtn) {
+    if (!window.launchAuditor || typeof window.launchAuditor.openAbout !== 'function') {
+      openAboutBtn.classList.add('hidden');
+    }
+    openAboutBtn.addEventListener('click', () => {
+      if (window.launchAuditor && typeof window.launchAuditor.openAbout === 'function') {
+        window.launchAuditor.openAbout();
+        return;
+      }
+      frame.src = '/about';
+      document.querySelectorAll('[data-report]').forEach(b => b.parentElement.parentElement.classList.remove('bg-sky-50'));
+    });
+  }
 
   const logoLink = document.querySelector('a[href="/"]');
   if (logoLink) {
