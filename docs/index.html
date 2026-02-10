@@ -400,6 +400,50 @@
       margin: 0;
     }
 
+    .download-grid {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .download-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid var(--slate-100);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .download-card h3 {
+      margin-bottom: 6px;
+    }
+
+    .download-note {
+      font-size: 0.95rem;
+      color: var(--slate-600);
+      margin-top: 8px;
+    }
+
+    .download-command {
+      margin-top: 12px;
+      background: var(--slate-100);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.9rem;
+      color: var(--slate-800);
+      overflow-x: auto;
+    }
+
+    .download-steps {
+      margin: 12px 0 0 0;
+      padding-left: 18px;
+      color: var(--slate-600);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
     .footer {
       margin-top: 72px;
       border-top: 1px solid var(--slate-200);
@@ -542,6 +586,34 @@
           <img src="assets/auditor-release-notes.png" alt="Release notes" />
           <figcaption>Release readiness</figcaption>
         </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Download Launch Auditor</h2>
+      <p class="section-sub">Grab the latest desktop builds for macOS and Windows directly from GitHub Releases.</p>
+      <div class="download-grid">
+        <div class="download-card">
+          <h3>macOS (Apple Silicon)</h3>
+          <p>DMG installer for macOS on Apple Silicon (arm64).</p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/dhairya-gabhawala/launch-auditor/releases/latest/download/Launch-Auditor-1.0.0-arm64.dmg">Download for Mac</a>
+          </div>
+          <div class="download-note">Why the security prompt? The app is currently unsigned while we complete code signing and notarization. macOS will require a one-time allowance to open it.</div>
+          <div class="download-command">xattr -dr com.apple.quarantine \"/Applications/Launch Auditor.app\"</div>
+        </div>
+        <div class="download-card">
+          <h3>Windows</h3>
+          <p>Installer for Windows 10/11.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/dhairya-gabhawala/launch-auditor/releases/latest/download/Launch-Auditor-Setup-1.0.0.exe">Download for Windows</a>
+          </div>
+          <div class="download-note">If Windows SmartScreen appears, select “More info” → “Run anyway.” We are completing code signing.</div>
+          <ul class="download-steps">
+            <li>Run the installer and follow the prompts.</li>
+            <li>Launch Auditor will appear in your Start Menu.</li>
+          </ul>
+        </div>
       </div>
     </section>
 
