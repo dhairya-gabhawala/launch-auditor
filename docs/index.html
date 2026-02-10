@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Launch Auditor — Adobe Data Collection QA</title>
+  <meta name="description" content="Launch Auditor audits Adobe Data Collection containers and surfaces configuration, opportunities, and release notes in one report." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: light;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --emerald-600: #059669;
+      --emerald-500: #10b981;
+      --amber-500: #f59e0b;
+      --cream: #f8f7f2;
+      --shadow: 0 28px 60px rgba(15, 23, 42, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Source Sans 3", system-ui, -apple-system, sans-serif;
+      color: var(--slate-900);
+      background: radial-gradient(circle at 12% 12%, #e8fff6, transparent 55%),
+        radial-gradient(circle at 85% 16%, #fef3c7, transparent 45%),
+        linear-gradient(180deg, #ffffff 0%, var(--cream) 100%);
+      min-height: 100vh;
+    }
+
+    h1, h2, h3 {
+      font-family: "Archivo", system-ui, -apple-system, sans-serif;
+      margin: 0 0 0.75rem 0;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      margin: 0 0 1rem 0;
+      color: var(--slate-600);
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: transparent;
+      display: grid;
+      place-items: center;
+    }
+
+    .brand-mark img {
+      width: 44px;
+      height: 44px;
+      filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.22));
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      color: var(--slate-700);
+      font-size: 0.95rem;
+    }
+
+    .nav-links a {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.06);
+      transition: all 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      background: rgba(15, 23, 42, 0.12);
+    }
+
+    .hero {
+      margin-top: 48px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 32px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(5, 150, 105, 0.12);
+      color: var(--emerald-600);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 2.2rem + 1.6vw, 3.5rem);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 0.98rem;
+      border: 1px solid transparent;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .button.primary {
+      background: var(--slate-900);
+      color: white;
+      box-shadow: 0 16px 30px rgba(15, 23, 42, 0.25);
+    }
+
+    .button.secondary {
+      background: white;
+      border-color: var(--slate-200);
+      color: var(--slate-700);
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+    }
+
+    .hero-card {
+      background: white;
+      border-radius: 28px;
+      padding: 26px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card:before {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.28), transparent 70%);
+      top: -60px;
+      right: -60px;
+    }
+
+    .carousel {
+      position: relative;
+    }
+
+    .carousel-frame {
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid var(--slate-100);
+      background: var(--slate-100);
+    }
+
+    .carousel-frame img {
+      width: 100%;
+      display: block;
+    }
+
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .carousel-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(15, 23, 42, 0.2);
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .carousel-dot.active {
+      background: var(--slate-900);
+      transform: scale(1.1);
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      background: var(--slate-100);
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--slate-700);
+      font-weight: 600;
+    }
+
+    .section {
+      margin-top: 72px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--slate-800);
+      font-size: 1.8rem;
+    }
+
+    .section-sub {
+      max-width: 720px;
+      margin-top: 12px;
+    }
+
+    .feature-grid {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .feature-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid var(--slate-100);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .feature-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .workflow-step {
+      background: linear-gradient(140deg, rgba(5, 150, 105, 0.08), rgba(15, 23, 42, 0.02));
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px solid rgba(5, 150, 105, 0.18);
+    }
+
+    .workflow-step span {
+      display: inline-block;
+      font-weight: 700;
+      color: var(--emerald-600);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .gallery {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .gallery figure {
+      margin: 0;
+      background: white;
+      border-radius: 20px;
+      padding: 12px;
+      border: 1px solid var(--slate-100);
+      box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    .gallery img {
+      width: 100%;
+      display: block;
+      border-radius: 14px;
+      max-height: 220px;
+      object-fit: cover;
+    }
+
+    .gallery .shot {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 14px;
+      background: linear-gradient(140deg, rgba(15, 23, 42, 0.9), rgba(245, 158, 11, 0.65));
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .gallery figcaption {
+      margin-top: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--slate-700);
+      text-align: center;
+    }
+
+    .tools-grid {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .tool-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid var(--slate-100);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .tool-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.02));
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .tool-badge img {
+      width: 100%;
+      height: 100%;
+    }
+
+    .tool-meta h3 {
+      margin-bottom: 4px;
+      font-size: 1.05rem;
+    }
+
+    .tool-meta p {
+      margin: 0;
+    }
+
+    .footer {
+      margin-top: 72px;
+      border-top: 1px solid var(--slate-200);
+      padding-top: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--slate-500);
+      font-size: 0.9rem;
+    }
+
+    .footer a {
+      color: var(--slate-600);
+    }
+
+    @media (max-width: 720px) {
+      .nav {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .nav-links {
+        flex-wrap: wrap;
+      }
+
+      .hero-card {
+        order: -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="nav">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <img src="assets/icon.png" alt="Launch Auditor" />
+        </div>
+        <div>
+          <div style="font-weight:700; font-size:1.05rem;">Launch Auditor</div>
+          <div style="font-size:0.85rem; color:var(--slate-500);">Adobe Data Collection QA</div>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#workflow">How it works</a>
+        <a href="#screens">Screens</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div>
+        <div class="hero-badge">Desktop App</div>
+        <h1>Audit Launch containers with confidence.</h1>
+        <p>Launch Auditor scans Adobe Data Collection containers and generates a readable report covering configuration, opportunities, and release notes. Know what’s deployed, what’s missing, and what to fix — fast.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#features">View capabilities</a>
+          <a class="button secondary" href="#screens">See sample report</a>
+        </div>
+        <div class="hero-meta">
+          <div class="meta-pill">Container analysis</div>
+          <div class="meta-pill">Opportunity flags</div>
+          <div class="meta-pill">Release readiness</div>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="carousel" aria-label="Launch Auditor screenshots">
+          <div class="carousel-frame">
+            <img id="hero-carousel-image" src="assets/auditor-breakdown.png" alt="Launch Auditor breakdown report" />
+          </div>
+          <div class="carousel-dots" role="tablist" aria-label="Select screenshot">
+            <button class="carousel-dot active" data-index="0" aria-label="Show breakdown report"></button>
+            <button class="carousel-dot" data-index="1" aria-label="Show opportunities report"></button>
+            <button class="carousel-dot" data-index="2" aria-label="Show release notes report"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <h2 class="section-title">Built for Launch governance</h2>
+      <p class="section-sub">Review Adobe Data Collection setups with a single run. Launch Auditor surfaces configuration insights, highlights gaps, and gives teams a standardized audit report.</p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Container breakdown</h3>
+          <p>Summarize extensions, rules, data elements, and libraries in a clean audit view.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Opportunity scoring</h3>
+          <p>Spot common gaps in governance, data quality, and operational consistency.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Release readiness</h3>
+          <p>Track release notes, changes, and policy checks before publishing updates.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Shareable reports</h3>
+          <p>Export or share a standardized report with stakeholders and audit teams.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="workflow" class="section">
+      <h2 class="section-title">How it works</h2>
+      <p class="section-sub">From selecting a container to producing an audit report, Launch Auditor keeps the workflow tight.</p>
+      <div class="workflow">
+        <div class="workflow-step">
+          <span>Step 1</span>
+          <h3>Select a container</h3>
+          <p>Load the Adobe Data Collection container you want to review.</p>
+        </div>
+        <div class="workflow-step">
+          <span>Step 2</span>
+          <h3>Run the audit</h3>
+          <p>Launch Auditor evaluates rules, data elements, extensions, and libraries.</p>
+        </div>
+        <div class="workflow-step">
+          <span>Step 3</span>
+          <h3>Review the report</h3>
+          <p>Use the report tabs to see breakdowns, opportunities, and release notes.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens" class="section">
+      <h2 class="section-title">Inside the product</h2>
+      <p class="section-sub">Add screenshots below to match the latest Launch Auditor UI.</p>
+      <div class="gallery">
+        <figure>
+          <img src="assets/auditor-breakdown.png" alt="Breakdown report" />
+          <figcaption>Breakdown report</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/auditor-opportunities.png" alt="Opportunity findings" />
+          <figcaption>Opportunity findings</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/auditor-release-notes.png" alt="Release notes" />
+          <figcaption>Release readiness</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Launch ecosystem</h2>
+      <p class="section-sub">Explore the rest of the Launch Suite for adjacent workflows.</p>
+      <div class="tools-grid">
+        <a class="tool-card" href="/launch-observer/">
+          <div class="tool-badge">
+            <img src="assets/launch-observer.svg" alt="Launch Observer" />
+          </div>
+          <div class="tool-meta">
+            <h3>Launch Observer</h3>
+            <p>Monitor analytics and marketing network calls in real time, decode payloads automatically, and organize sessions by site to keep QA crisp and repeatable.</p>
+          </div>
+        </a>
+        <div class="tool-card">
+          <div class="tool-badge">
+            <img src="assets/launch-sentinel.svg" alt="Launch Sentinel" />
+          </div>
+          <div class="tool-meta">
+            <h3>Launch Sentinel</h3>
+            <p>Automated monitoring for data quality with scheduled tests, alerting, and regression checks across key analytics and marketing signals. Coming soon.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>Launch Auditor • Adobe Data Collection QA</div>
+      <div>
+        <a href="/launch-observer/">Launch Observer</a>
+        ·
+        <a href="#features">Features</a>
+        ·
+        <a href="#workflow">How it works</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const images = [
+        { src: "assets/auditor-breakdown.png", alt: "Launch Auditor breakdown report" },
+        { src: "assets/auditor-opportunities.png", alt: "Launch Auditor opportunities report" },
+        { src: "assets/auditor-release-notes.png", alt: "Launch Auditor release notes report" },
+      ];
+
+      const heroImage = document.getElementById("hero-carousel-image");
+      const dots = Array.from(document.querySelectorAll(".carousel-dot"));
+      let activeIndex = 0;
+      let timer = null;
+
+      function setSlide(index) {
+        activeIndex = index;
+        const item = images[index];
+        heroImage.src = item.src;
+        heroImage.alt = item.alt;
+        dots.forEach((dot, idx) => {
+          dot.classList.toggle("active", idx === index);
+        });
+      }
+
+      function startCycle() {
+        stopCycle();
+        timer = setInterval(() => {
+          const next = (activeIndex + 1) % images.length;
+          setSlide(next);
+        }, 4500);
+      }
+
+      function stopCycle() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      dots.forEach((dot) => {
+        dot.addEventListener("click", () => {
+          const index = Number(dot.dataset.index);
+          setSlide(index);
+          startCycle();
+        });
+      });
+
+      heroImage.addEventListener("mouseenter", stopCycle);
+      heroImage.addEventListener("mouseleave", startCycle);
+
+      startCycle();
+    })();
+  </script>
+</body>
+</html>
